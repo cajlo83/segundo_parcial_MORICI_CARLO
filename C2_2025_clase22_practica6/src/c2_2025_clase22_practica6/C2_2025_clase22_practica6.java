@@ -20,10 +20,6 @@ public class C2_2025_clase22_practica6 extends Application {
         FXMLLoader loader = new FXMLLoader(getClass().getResource(".\\RegistroProductoFXML.fxml"));
         Parent root = loader.load();
 
-        //  Obtener el controller
-        RegistroProductoController controller = loader.getController();
-
-
 
         Scene scene = new Scene(root);
         stage.setScene(scene);

@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.ResourceBundle;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import static javafx.collections.FXCollections.observableArrayList;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
@@ -24,11 +25,14 @@ import javafx.scene.control.cell.PropertyValueFactory;
 public class RegistroProductoController implements Initializable {
 
     // ******* variables locales ******* 
-    private ObservableList<Producto> listaProductos;
+    private ObservableList<Producto> listaProductos; //observablelist hace que este sincronizada la lista visual con la lsita en memoria
 
     private Archivo archivo = new Archivo(".\\RegistroProducto.dat");
 
     // ******* importaciones ******* 
+    @FXML
+    private Label lblInformativo;
+
     @FXML
     private TextField txtNombre;
 
@@ -54,32 +58,31 @@ public class RegistroProductoController implements Initializable {
     @Override
     public void initialize(URL url, ResourceBundle rb) {
 
-        // configuracion de columnas
+        //configuracion de columnas
         colNombre.setCellValueFactory(new PropertyValueFactory<>("nombre"));
         colPrecio.setCellValueFactory(new PropertyValueFactory<>("precio"));
         colCategoria.setCellValueFactory(new PropertyValueFactory<>("categoria"));
 
-        // 2. Cargar categorías en el ChoiceBox
+        //cargar categorías en el ChoiceBox
         cbCategoria.getItems().setAll(Categoria.values());
 
-        // 3. Cargar archivo
+        //cargar archivo
         try {
             Object cargado = archivo.cargar();
 
             if (cargado != null) {
-                listaProductos = javafx.collections.FXCollections.observableArrayList(
-                        (List<Producto>) cargado
-                );
+                listaProductos = observableArrayList((List<Producto>) cargado);
             } else {
-                listaProductos = javafx.collections.FXCollections.observableArrayList();
+                listaProductos = observableArrayList();
             }
 
         } catch (Exception ex) {
-            listaProductos = javafx.collections.FXCollections.observableArrayList();
-            System.out.println("Error cargando archivo: " + ex.getMessage());
+            listaProductos = observableArrayList();
+            // System.out.println("Error cargando archivo: " + ex.getMessage());
+            lblInformativo.setText("Error cargando archivo: " + ex.getMessage());
         }
 
-        // 4. Conectar lista con TableView
+        // Conectar lista con TableView
         tvLista.setItems(listaProductos);
     }
 
@@ -87,45 +90,41 @@ public class RegistroProductoController implements Initializable {
     @FXML
     private void agregar() {
 
-        String nombre = txtNombre.getText();
-        double precio = Double.parseDouble(txtPrecio.getText());
-        Categoria categoria = cbCategoria.getValue();
+        //******* validaciones
+        if (!validacionesOK()) {
+            return;
 
-        if (nombre == null || nombre.isBlank()) {
-            return;
-        }
-        if (precio <= 0) {
-            return;
-        }
-        if (categoria == null) {
-            return;
         }
 
-        Producto p = new Producto(nombre, precio, categoria);
-
-        // agregar a la lista 
+        // crear objeto Producto
+            Producto p = new Producto(txtNombre.getText(), Double.parseDouble(txtPrecio.getText()), cbCategoria.getValue());
+        //agregar a la lista
         listaProductos.add(p);
 
-        // guardar archivo
+        // Guardar
         try {
             archivo.guardar(new ArrayList<>(listaProductos));
-        } catch (IOException ex) {
-            Logger.getLogger(RegistroProductoController.class.getName()).log(Level.SEVERE, null, ex);
+            lblInformativo.setText("Producto agregado correctamente");
+        } catch (Exception ex) {
+            lblInformativo.setText("Error al guardar el archivo");
         }
     }
 
     @FXML
     private void eliminarSeleccion() {
-        
+
         //logica de seleccion
         Producto seleccionado = tvLista.getSelectionModel().getSelectedItem();
         if (seleccionado == null) {
-            System.out.println("No hay nada seleccionado");
+            //System.out.println("No hay nada seleccionado");
+
+            lblInformativo.setText("No hay nada seleccionado");
             return;
         }
 
         //remover 
         listaProductos.remove(seleccionado);
+        lblInformativo.setText("Se elimino: " + seleccionado.toString());
 
         //guardar archivo
         try {
@@ -135,4 +134,45 @@ public class RegistroProductoController implements Initializable {
         }
     }
 
+    private boolean validacionesOK() {
+        String nombre = txtNombre.getText();
+        String precioTexto = txtPrecio.getText();
+        Categoria categoria = cbCategoria.getValue();
+
+        // nombre
+        if (nombre == null || nombre.isBlank()) {
+            lblInformativo.setText("Nombre incorrecto");
+            return false;
+        }
+
+        // precio vacio
+        if (precioTexto == null || precioTexto.isBlank()) {
+            lblInformativo.setText("El precio está vacío");
+            return false;
+        }
+
+        // precio numerico
+        double precio;
+        try {
+            precio = Double.parseDouble(precioTexto);
+        } catch (NumberFormatException e) {
+            lblInformativo.setText("El precio debe ser un número");
+            return false;
+        }
+
+        // precio mayor que 0
+        if (precio <= 0) {
+            lblInformativo.setText("El precio debe ser mayor que 0");
+            return false;
+        }
+
+        // categoria
+        if (categoria == null) {
+            lblInformativo.setText("Seleccione una categoría");
+            return false;
+        }
+
+        return true;
+
+    }
 }
