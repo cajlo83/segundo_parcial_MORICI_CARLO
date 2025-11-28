@@ -2,7 +2,6 @@ package segundo_parcial_morici_carlo;
 
 import java.io.*;
 
-
 public class ArchivoDat {
 
     private final String ruta;
@@ -22,8 +21,6 @@ public class ArchivoDat {
         oos.close();
     }
 
-    
-    
     //para cargar 
     //LO
     //QUE
@@ -31,6 +28,9 @@ public class ArchivoDat {
     //benditos comodines
     public Object cargar() throws IOException, ClassNotFoundException {
         File f = new File(ruta);
+
+        System.out.println("Buscando archivo en: " + f.getAbsolutePath());
+
         if (!f.exists()) {
             return null;
         }

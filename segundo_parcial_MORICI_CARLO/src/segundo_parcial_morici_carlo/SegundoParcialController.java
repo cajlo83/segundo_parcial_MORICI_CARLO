@@ -28,7 +28,7 @@ public class SegundoParcialController implements Initializable {
     private ObservableList<Producto> listaProductos; //observablelist hace que este sincronizada la lista visual con la lista en memoria
     private ObservableList<Producto> listaCarrito; //observablelist hace que este sincronizada la lista visual con la lista en memoria
 
-    private ArchivoDat archivoProductosDat = new ArchivoDat(".\\productos.dat");
+    private ArchivoDat archivoProductosDat = new ArchivoDat("productos.dat");
 
     // ******* importaciones ******* 
     @FXML
@@ -71,12 +71,18 @@ public class SegundoParcialController implements Initializable {
         try {
             Object cargado = archivoProductosDat.cargar();
 
-            if (cargado != null) {
-                List<Producto> productos = (List<Producto>) cargado;
-                listaProductos = observableArrayList(productos);
+            if (cargado instanceof List<?>) {
+                List<?> listaRaw = (List<?>) cargado;
+
+                // Verificar que los elementos sean Producto
+                if (!listaRaw.isEmpty() && !(listaRaw.get(0) instanceof Producto)) {
+                    VentanaParaAvisos.mostrar("El archivo no contiene productos válidos", 300, 100);
+                } else {
+                    listaProductos = observableArrayList((List<Producto>) listaRaw);
+                }
             } else {
                 listaProductos = observableArrayList();
-                VentanaParaAvisos.mostrar("archivo vacio o no existe archivo: ", 300, 100);
+                VentanaParaAvisos.mostrar("Archivo vacío o incompatible", 300, 100);
             }
 
         } catch (Exception ex) {
@@ -85,7 +91,6 @@ public class SegundoParcialController implements Initializable {
             VentanaParaAvisos.mostrar("Error cargando archivo: " + ex.getMessage(), 300, 100);
         }
 
-// conectar lista con TableView
         tvLista.setItems(listaProductos);
 
     }
