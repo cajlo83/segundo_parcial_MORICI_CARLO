@@ -11,272 +11,218 @@ import java.util.List;
 import java.util.ResourceBundle;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import static javafx.collections.FXCollections.observableArrayList;
+
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 
-/**
- *
- * @author Usuario
- */
 public class SegundoParcialController implements Initializable {
 
-    // ******* variables locales ******* 
-    private ObservableList<Producto> listaProductos; //observablelist hace que este sincronizada la lista visual con la lista en memoria
-    private ObservableList<Producto> listaCarrito; //observablelist hace que este sincronizada la lista visual con la lista en memoria
+    //  *****  VARIABLES  ***** 
+    private ObservableList<Producto> listaProductos;
+    private ObservableList<Producto> listaCarrito;
+    private final ArchivoDat archivoProductosDat = new ArchivoDat("productos.dat");
 
-    private ArchivoDat archivoProductosDat = new ArchivoDat("productos.dat");
-
-    // ******* importaciones ******* 
+    //  *****  FXML ***** 
     @FXML
     private Label lblInformativo;
-
     @FXML
     private TextField txtCantidad;
-
     @FXML
     private ListView<Producto> lvCarrito;
-
     @FXML
     private TableView<Producto> tvLista;
-
     @FXML
     private TableColumn<Producto, String> colNombre;
-
     @FXML
     private TableColumn<Producto, Double> colPrecio;
-
     @FXML
     private TableColumn<Producto, Integer> colStock;
 
-    // ******* inicializacion ******* 
+    // ***** INICIALIZAR ***** 
     @Override
     public void initialize(URL url, ResourceBundle rb) {
+        inicializarListas();
+        configurarColumnas();
+        cargarProductosDesdeArchivo();
+        tvLista.setItems(listaProductos);
+    }
 
-        //iniciar listas visibles
+    private void inicializarListas() {
         listaProductos = observableArrayList();
         listaCarrito = observableArrayList();
         lvCarrito.setItems(listaCarrito);
+    }
 
-        //boolean aviso = false;
-        //configuracion de columnas
+    private void configurarColumnas() {
         colNombre.setCellValueFactory(new PropertyValueFactory<>("nombre"));
         colPrecio.setCellValueFactory(new PropertyValueFactory<>("precio"));
         colStock.setCellValueFactory(new PropertyValueFactory<>("stock"));
+    }
 
-        // cargar archivo .dat
+    private void cargarProductosDesdeArchivo() {
         try {
             Object cargado = archivoProductosDat.cargar();
 
             if (cargado instanceof List<?>) {
-                List<?> listaRaw = (List<?>) cargado;
+                List<?> raw = (List<?>) cargado;
 
-                // Verificar que los elementos sean Producto
-                if (!listaRaw.isEmpty() && !(listaRaw.get(0) instanceof Producto)) {
+                if (!raw.isEmpty() && !(raw.get(0) instanceof Producto)) {
                     VentanaParaAvisos.mostrar("El archivo no contiene productos válidos", 300, 100);
-                } else {
-                    listaProductos = observableArrayList((List<Producto>) listaRaw);
+                    return;
                 }
+
+                listaProductos = observableArrayList((List<Producto>) raw);
+
             } else {
-                listaProductos = observableArrayList();
                 VentanaParaAvisos.mostrar("Archivo vacío o incompatible", 300, 100);
             }
 
         } catch (Exception ex) {
-            listaProductos = observableArrayList();
             lblInformativo.setText("Error cargando archivo: " + ex.getMessage());
             VentanaParaAvisos.mostrar("Error cargando archivo: " + ex.getMessage(), 300, 100);
         }
-
-        tvLista.setItems(listaProductos);
-
     }
 
-    // ******* funciones ******* 
+    // ***** AGREGAR AL CARRITO ***** 
     @FXML
     private void agregarAlCarrito() {
 
-        int cantidad;
-        Producto pCarrito;
-
-        //logica de seleccion
-        Producto seleccionado = tvLista.getSelectionModel().getSelectedItem();
+        Producto seleccionado = obtenerProductoSeleccionado();
         if (seleccionado == null) {
-            //System.out.println("No hay nada seleccionado");
-
-            lblInformativo.setText("No hay nada seleccionado");
             return;
-        } else {
-            cantidad = Integer.parseInt(txtCantidad.getText());
-
-            if (cantidad > 0 && cantidad < seleccionado.getStock()) {
-                pCarrito = new Producto(seleccionado.getNombre(), seleccionado.getPrecio(), cantidad);
-                listaCarrito.add(pCarrito);
-
-            }
         }
 
+        Integer cantidad = obtenerCantidad();
+        if (cantidad == null) {
+            return;
+        }
+
+        if (!cantidadValida(cantidad, seleccionado)) {
+            return;
+        }
+
+        agregarProductoAlCarrito(seleccionado, cantidad);
     }
 
+    private Producto obtenerProductoSeleccionado() {
+        Producto p = tvLista.getSelectionModel().getSelectedItem();
+        if (p == null) {
+            lblInformativo.setText("No hay nada seleccionado");
+        }
+        return p;
+    }
+
+    private Integer obtenerCantidad() {
+        try {
+            return Integer.parseInt(txtCantidad.getText());
+        } catch (NumberFormatException ex) {
+            lblInformativo.setText("Cantidad invalida");
+            return null;
+        }
+    }
+
+    private boolean cantidadValida(int cantidad, Producto seleccionado) {
+        if (cantidad <= 0) {
+            lblInformativo.setText("Cantidad debe ser mayor a 0");
+            return false;
+        }
+        if (cantidad > seleccionado.getStock()) {
+            lblInformativo.setText("No hay stock suficiente");
+            return false;
+        }
+        return true;
+    }
+
+    private void agregarProductoAlCarrito(Producto original, int cantidad) {
+        Producto pCarrito = new Producto(original.getNombre(), original.getPrecio(), cantidad);
+        listaCarrito.add(pCarrito);
+    }
+
+    // ***** confirmacion de compra y logicas de tk ***** 
     @FXML
     private void confirmarCompra() {
 
-        //validar que no este vacio
-        if (listaCarrito.size() <= 0) {
-            lblInformativo.setText("Lista de compras vacia");
-        } else {
-            double total = 0;
+        if (listaCarrito.isEmpty()) {
+            lblInformativo.setText("Lista de compras vacía");
+            return;
+        }
 
-            /*Una vez finalizada la compra se debe validar que tenga productos en el carrito, 
-            calcular el total de la compra y generar el ticket de compra, 
-            que se guardara en un archivo txt denominado ticket, 
-            con el detalle de la compra y el valor total:  
-             */
-            StringBuilder textoSalida = new StringBuilder("Nombre producto\t-\tCantidad\t-\tSubtotal\n");
-            for (Producto p : listaCarrito) {
-                int cantidad = p.getStock();
-                double precio = p.getPrecio();
-                double subtotal = cantidad * precio;
-                textoSalida.append(p.getNombre()).append("\t-\t");
-                textoSalida.append(cantidad).append("\t-\t");
-                textoSalida.append(subtotal).append("\n");
-                total += subtotal;
-            }
-            textoSalida.append("\nTOTAL A PAGAR: $").append(total);
+        double total = calcularTotal();
 
-            /*Una vez confirmada la compra debe actualizarse el stock real de cada producto afectado 
-            sobrescribirse el archivo .dat original con la nueva lista serializada y limpiar el carrito.*/
-            //actualizar stock real con for anidado
-            for (Producto p : listaProductos) {
-                for (Producto pCarrito : listaCarrito) {
-                    if (p.getNombre().equals(pCarrito.getNombre())) {
-                        p.setStock(p.getStock() - pCarrito.getStock());
+        String ticketTexto = generarTextoTicket(total);
 
-                        break; //salida del segundo for hacia el primero en caso de encontrar coincidencia
+        actualizarStockProductos();
+        guardarProductosEnArchivo();
 
-                    }
+        listaCarrito.clear();
+        tvLista.refresh();
 
+
+        guardarTicket(ticketTexto);
+    }
+
+    // calcular total
+    private double calcularTotal() {
+        double total = 0;
+        for (Producto p : listaCarrito) {
+            total += p.getPrecio() * p.getStock();
+        }
+        return total;
+    }
+
+    // texto del tk
+    private String generarTextoTicket(double total) {
+        StringBuilder sb = new StringBuilder("Nombre producto\t-\tCantidad\t-\tSubtotal\n");
+
+        for (Producto p : listaCarrito) {
+            double subtotal = p.getPrecio() * p.getStock();
+            sb.append(p.getNombre()).append("\t-\t")
+                    .append(p.getStock()).append("\t-\t")
+                    .append(subtotal).append("\n");
+        }
+
+        sb.append("\nTOTAL A PAGAR: $").append(total);
+        return sb.toString();
+    }
+
+    // control stock
+    private void actualizarStockProductos() {
+        for (Producto pLista : listaProductos) {
+            for (Producto pCarrito : listaCarrito) {
+                if (pLista.getNombre().equals(pCarrito.getNombre())) {
+                    pLista.setStock(pLista.getStock() - pCarrito.getStock());
+                    break;
                 }
             }
-
-            //actualizar archivo productos.dat
-            try {
-                archivoProductosDat.guardar(new ArrayList<>(listaProductos));
-
-            } catch (IOException ex) {
-                Logger.getLogger(SegundoParcialController.class.getName()).log(Level.SEVERE, null, ex);
-            }
-            //limpiar carrito
-            listaCarrito.clear();
-
-            //termina logica de venta, empieza logica de guardar ticket
-            LocalDateTime ahora = LocalDateTime.now(); // conseguir fecha y hora actual
-            DateTimeFormatter formato = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-            String fechaYHoraActual = ahora.format(formato);
-
-            ArchivoTxt archivo = new ArchivoTxt("ticket " + fechaYHoraActual + ".txt");
-
-            try {
-                archivo.guardar(textoSalida.toString());
-                System.out.println("Guardado ok");
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-
-        }
-
-    }
-
-    /*
-    @FXML
-    private void agregar() {
-
-        //******* validaciones
-        if (!validacionesOK()) {
-            return;
-
-        }
-
-        // crear objeto Producto
-            Producto p = new Producto(txtNombre.getText(), Double.parseDouble(txtPrecio.getText()), cbCategoria.getValue());
-        //agregar a la lista
-        listaProductos.add(p);
-
-        // Guardar
-        try {
-            archivo.guardar(new ArrayList<>(listaProductos));
-            lblInformativo.setText("Producto agregado correctamente");
-        } catch (Exception ex) {
-            lblInformativo.setText("Error al guardar el archivo");
         }
     }
 
-    @FXML
-    private void eliminarSeleccion() {
-
-        //logica de seleccion
-        Producto seleccionado = tvLista.getSelectionModel().getSelectedItem();
-        if (seleccionado == null) {
-            //System.out.println("No hay nada seleccionado");
-
-            lblInformativo.setText("No hay nada seleccionado");
-            return;
-        }
-
-        //remover 
-        listaProductos.remove(seleccionado);
-        lblInformativo.setText("Se elimino: " + seleccionado.toString());
-
-        //guardar archivo
+    private void guardarProductosEnArchivo() {
         try {
-            archivo.guardar(new ArrayList<>(listaProductos));
+            archivoProductosDat.guardar(new ArrayList<>(listaProductos));
         } catch (IOException ex) {
             Logger.getLogger(SegundoParcialController.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
-    private boolean validacionesOK() {
-        String nombre = txtNombre.getText();
-        String precioTexto = txtPrecio.getText();
-        Categoria categoria = cbCategoria.getValue();
+    // guardar tk
+    private void guardarTicket(String texto) {
+        LocalDateTime ahora = LocalDateTime.now();
+        DateTimeFormatter formato = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+        String fecha = ahora.format(formato);
 
-        // nombre
-        if (nombre == null || nombre.isBlank()) {
-            lblInformativo.setText("Nombre incorrecto");
-            return false;
-        }
+        ArchivoTxt archivo = new ArchivoTxt("ticket " + fecha + ".txt");
 
-        // precio vacio
-        if (precioTexto == null || precioTexto.isBlank()) {
-            lblInformativo.setText("El precio está vacío");
-            return false;
-        }
-
-        // precio numerico
-        double precio;
         try {
-            precio = Double.parseDouble(precioTexto);
-        } catch (NumberFormatException e) {
-            lblInformativo.setText("El precio debe ser un número");
-            return false;
+            archivo.guardar(texto);
+            System.out.println("Ticket guardado correctamente");
+        } catch (IOException ex) {
+            ex.printStackTrace();
         }
-
-        // precio mayor que 0
-        if (precio <= 0) {
-            lblInformativo.setText("El precio debe ser mayor que 0");
-            return false;
-        }
-
-        // categoria
-        if (categoria == null) {
-            lblInformativo.setText("Seleccione una categoría");
-            return false;
-        }
-
-        return true;
-
-    }*/
+    }
 }

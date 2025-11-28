@@ -1,0 +1,5 @@
+Nombre producto	-	Cantidad	-	Subtotal
+Teclado Redragon	-	4	-	92000.4
+Impresora HP	-	2	-	360001.2
+
+TOTAL A PAGAR: $452001.6

@@ -1,0 +1,5 @@
+Nombre producto	-	Cantidad	-	Subtotal
+Disco SSD 1TB	-	17	-	1190011.9
+Notebook Lenovo	-	3	-	2700001.2
+
+TOTAL A PAGAR: $3890013.1

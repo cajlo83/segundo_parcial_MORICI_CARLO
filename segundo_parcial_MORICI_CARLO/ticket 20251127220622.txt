@@ -1,0 +1,4 @@
+Nombre producto	-	Cantidad	-	Subtotal
+Mouse Logitech	-	3	-	45000.0
+
+TOTAL A PAGAR: $45000.0
